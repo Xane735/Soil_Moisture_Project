@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ESP8266 Dashboard</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(to right, #e0eafc, #cfdef3);
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      padding: 20px;
+      text-align: center;
+    }
+    .circle {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto;
+    }
+    .circle svg {
+      transform: rotate(-90deg);
+    }
+    .circle text {
+      font-size: 1.2em;
+      fill: #333;
+    }
+    .status {
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: #4f46e5;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #3730a3;
+    }
+    dialog {
+      border: none;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+<div class="dashboard">
+  <!-- Soil Moisture -->
+  <div class="card">
+    <h2>Soil Moisture</h2>
+    <div class="circle">
+      <svg width="120" height="120">
+        <circle cx="60" cy="60" r="50" stroke="#eee" stroke-width="10" fill="none"/>
+        <circle id="moisture-circle" cx="60" cy="60" r="50" stroke="#10b981" stroke-width="10" fill="none" stroke-dasharray="314" stroke-dashoffset="157"/>
+        <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" id="moisture-text">50%</text>
+      </svg>
+    </div>
+    <p class="status" id="pump-status">Pump Status: OFF</p>
+    <button onclick="showDialog('moisture-dialog')">Control Pump</button>
+    <dialog id="moisture-dialog">
+      <p id="moisture-msg">Moisture is adequate. You may turn off the pump.</p>
+      <button onclick="closeDialog('moisture-dialog')">Close</button>
+    </dialog>
+  </div>
+
+  <!-- Temperature -->
+  <div class="card">
+    <h2>Room Temperature</h2>
+    <div style="font-size: 2em;">🌡️ <span id="temp-value">28</span>°C</div>
+    <p class="status" id="temp-action">Action: Optimal</p>
+    <button onclick="showDialog('temp-dialog')">Control Temperature</button>
+    <dialog id="temp-dialog">
+      <p id="temp-msg">Temperature is optimal. Maintain current settings.</p>
+      <button onclick="closeDialog('temp-dialog')">Close</button>
+    </dialog>
+  </div>
+
+  <!-- Humidity -->
+  <div class="card">
+    <h2>Humidity</h2>
+    <div style="font-size: 2em;">💧 <span id="humidity-value">55</span>%</div>
+    <p class="status" id="humidity-action">Action: Optimal</p>
+    <button onclick="showDialog('humidity-dialog')">Control Humidifier</button>
+    <dialog id="humidity-dialog">
+      <p id="humidity-msg">Humidity is optimal. Maintain current settings.</p>
+      <button onclick="closeDialog('humidity-dialog')">Close</button>
+    </dialog>
+  </div>
+</div>
+
+<script>
+  let soilMoisture = 50;   // from ESP8266
+  let temperature = 28;    // from ESP8266
+  let humidity = 55;       // from ESP8266
+
+  function updateUI() {
+    // Moisture
+    document.getElementById('moisture-text').textContent = soilMoisture + '%';
+    const offset = 314 - (soilMoisture / 100) * 314;
+    document.getElementById('moisture-circle').setAttribute('stroke-dashoffset', offset);
+    const pumpStatus = soilMoisture < 40 ? 'ON' : 'OFF';
+    document.getElementById('pump-status').textContent = 'Pump Status: ' + pumpStatus;
+    document.getElementById('moisture-msg').textContent =
+      soilMoisture < 40 ? 'Moisture is low. You may turn on the pump.' :
+                          'Moisture is adequate. You may turn off the pump.';
+
+    // Temperature
+    document.getElementById('temp-value').textContent = temperature;
+    const tempAction = temperature < 20 ? 'Increase' : temperature > 30 ? 'Decrease' : 'Optimal';
+    document.getElementById('temp-action').textContent = 'Action: ' + tempAction;
+    document.getElementById('temp-msg').textContent =
+      temperature < 20 ? 'Temperature is low. Turn on the heater.' :
+      temperature > 30 ? 'Temperature is high. Turn on the cooler.' :
+                         'Temperature is optimal. Maintain current settings.';
+
+    // Humidity
+    document.getElementById('humidity-value').textContent = humidity;
+    const humAction = humidity < 40 ? 'Increase' : humidity > 70 ? 'Decrease' : 'Optimal';
+    document.getElementById('humidity-action').textContent = 'Action: ' + humAction;
+    document.getElementById('humidity-msg').textContent =
+      humidity < 40 ? 'Humidity is low. Increase humidification.' :
+      humidity > 70 ? 'Humidity is high. Decrease humidification.' :
+                      'Humidity is optimal. Maintain current settings.';
+  }
+
+  function showDialog(id) {
+    document.getElementById(id).showModal();
+  }
+
+  function closeDialog(id) {
+    document.getElementById(id).close();
+  }
+
+  // Call once to render
+  updateUI();
+</script>
+
+</body>
+</html>
