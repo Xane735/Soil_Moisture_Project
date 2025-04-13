@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Automatic Plant Care</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <style>
+      :root {
+        --sdg-green: #4caf50;
+        --sdg-blue: #2196f3;
+        --sdg-dark-blue: #1565c0;
+        --sdg-light-blue: #e3f2fd;
+        --sdg-yellow: #ffc107;
+        --sdg-orange: #ff9800;
+        --sdg-white: #ffffff;
+        --sdg-light-gray: #f5f5f5;
+        --sdg-text: #263238;
+        --sdg-text-light: #607d8b;
+      }
+
+      body {
+        font-family: "Poppins", sans-serif;
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(
+          135deg,
+          var(--sdg-light-blue),
+          var(--sdg-white)
+        );
+        color: var(--sdg-text);
+        min-height: 100vh;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        color: var(--sdg-dark-blue);
+        margin-bottom: 5px;
+        font-weight: 600;
+        font-size: 2.2rem;
+      }
+
+      .header p {
+        color: var(--sdg-text-light);
+        margin-top: 0;
+        font-weight: 300;
+      }
+
+      .nav {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .nav button {
+        padding: 8px 20px;
+        background: var(--sdg-light-blue);
+        border: none;
+        border-radius: 20px;
+        color: var(--sdg-dark-blue);
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+      }
+
+      .nav button.active {
+        background: var(--sdg-green);
+        color: white;
+      }
+
+      .nav button:hover {
+        transform: translateY(-2px);
+      }
+
+      .dashboard,
+      .stats-page {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 25px;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .stats-page {
+        display: none;
+      }
+
+      .card {
+        background: var(--sdg-white);
+        border-radius: 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        padding: 25px;
+        text-align: center;
+        border: none;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+      }
+
+      .card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 5px;
+        background: var(--sdg-green);
+      }
+
+      .card:nth-child(2)::before {
+        background: var(--sdg-orange);
+      }
+
+      .card:nth-child(3)::before {
+        background: var(--sdg-blue);
+      }
+
+      .card:nth-child(4)::before {
+        background: var(--sdg-dark-blue);
+      }
+
+      .card h2 {
+        color: var(--sdg-dark-blue);
+        margin-top: 0;
+        font-weight: 600;
+        font-size: 1.4rem;
+      }
+
+      .circle {
+        width: 140px;
+        height: 140px;
+        margin: 0 auto 15px;
+        position: relative;
+      }
+
+      .circle svg {
+        transform: rotate(-90deg);
+      }
+
+      .circle text {
+        font-size: 1.5em;
+        fill: var(--sdg-text);
+        font-weight: 500;
+      }
+
+      .circle .percentage {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 2rem; /* Increased font size */
+        font-weight: 600;
+        color: var(--sdg-text);
+      }
+
+      .status {
+        font-weight: 500;
+        margin: 15px 0;
+        padding: 8px 12px;
+        border-radius: 20px;
+        display: inline-block;
+        font-size: 0.9rem;
+      }
+
+      #pump-status {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+      }
+
+      #temp-action {
+        background-color: rgba(255, 152, 0, 0.1);
+        color: var(--sdg-orange);
+      }
+
+      #humidity-action {
+        background-color: rgba(33, 150, 243, 0.1);
+        color: var(--sdg-blue);
+      }
+
+      #water-level-status {
+        background-color: rgba(21, 101, 192, 0.1);
+        color: var(--sdg-dark-blue);
+      }
+
+      button {
+        margin-top: 10px;
+        padding: 12px 24px;
+        background: var(--sdg-green);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        font-size: 0.95rem;
+        width: 100%;
+        max-width: 200px;
+      }
+
+      button:hover {
+        background: #3d8b40;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .card:nth-child(2) button {
+        background: var(--sdg-orange);
+      }
+
+      .card:nth-child(2) button:hover {
+        background: #e68a00;
+      }
+
+      .card:nth-child(3) button {
+        background: var(--sdg-blue);
+      }
+
+      .card:nth-child(3) button:hover {
+        background: #0d8aee;
+      }
+
+      .card:nth-child(4) button {
+        background: var(--sdg-dark-blue);
+      }
+
+      .card:nth-child(4) button:hover {
+        background: #0d47a1;
+      }
+
+      dialog {
+        border: none;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        max-width: 400px;
+        width: 90%;
+        text-align: center;
+      }
+
+      dialog h3 {
+        margin-top: 0;
+        color: var(--sdg-dark-blue);
+      }
+
+      dialog p {
+        margin-bottom: 25px;
+        color: var(--sdg-text-light);
+        line-height: 1.5;
+      }
+
+      dialog::backdrop {
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(3px);
+      }
+
+      /* Stats Page Specific Styles */
+      .stats-card {
+        grid-column: span 2;
+        text-align: left;
+        padding: 25px;
+      }
+
+      .chart-container {
+        height: 300px;
+        margin-top: 20px;
+        position: relative;
+      }
+
+      .stats-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      .stats-table th,
+      .stats-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--sdg-light-gray);
+      }
+
+      .stats-table th {
+        background-color: var(--sdg-light-blue);
+        color: var(--sdg-dark-blue);
+      }
+
+      .stats-table tr:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+      }
+
+      .trend-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .trend-up {
+        color: var(--sdg-green);
+      }
+
+      .trend-down {
+        color: var(--sdg-orange);
+      }
+
+      .icon {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        display: inline-block;
+      }
+
+      .temp-humidity-display {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .value-display {
+        font-size: 2.8rem;
+        font-weight: 600;
+        color: var(--sdg-text);
+      }
+
+      .unit {
+        font-size: 1.5rem;
+        color: var(--sdg-text-light);
+        vertical-align: super;
+      }
+
+      .footer {
+        text-align: center;
+        margin-top: 40px;
+        padding: 20px;
+        color: var(--sdg-text-light);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 768px) {
+        .dashboard,
+        .stats-page {
+          grid-template-columns: 1fr;
+        }
+        .stats-card {
+          grid-column: span 1;
+        }
+      }
+
+      /* Alert styles */
+      .alert {
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        font-weight: 500;
+      }
+
+      .alert-warning {
+        background-color: rgba(255, 152, 0, 0.1);
+        color: var(--sdg-orange);
+        border-left: 4px solid var(--sdg-orange);
+      }
+
+      .alert-success {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        border-left: 4px solid #10b981;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>Automatic Plant Care</h1>
+      <p>Smart Monitoring System for Healthy Plants</p>
+    </div>
+
+    <div class="nav">
+      <button class="active" onclick="showPage('dashboard')">
+        Live Dashboard
+      </button>
+      <button onclick="showPage('stats')">Weekly Stats</button>
+    </div>
+
+    <div id="dashboard" class="dashboard">
+      <div class="card">
+        <h2>Soil Moisture</h2>
+        <div class="icon">🌱</div>
+        <div class="circle">
+          <svg width="140" height="140">
+            <circle
+              cx="70"
+              cy="70"
+              r="60"
+              stroke="#eee"
+              stroke-width="10"
+              fill="none"
+            />
+            <circle
+              id="moisture-circle"
+              cx="70"
+              cy="70"
+              r="60"
+              stroke="#10b981"
+              stroke-width="10"
+              fill="none"
+              stroke-dasharray="377"
+              stroke-dashoffset="188.5"
+            />
+          </svg>
+          <div class="percentage" id="moisture-text">--%</div>
+        </div>
+        <p class="status" id="pump-status">Pump Status: --</p>
+        <div id="moisture-alert"></div>
+        <button onclick="showDialog('moisture-dialog')">Control Pump</button>
+        <dialog id="moisture-dialog">
+          <h3>Soil Moisture Control</h3>
+          <p id="moisture-msg">Moisture level: --</p>
+          <button onclick="controlPump('ON')">Turn ON Pump</button>
+          <button onclick="controlPump('OFF')">Turn OFF Pump</button>
+          <button onclick="closeDialog('moisture-dialog')">Close</button>
+        </dialog>
+      </div>
+
+      <div class="card">
+        <h2>Temperature</h2>
+        <div class="icon">🌡️</div>
+        <div class="temp-humidity-display">
+          <span class="value-display" id="temp-value">--</span>
+          <span class="unit">°C</span>
+        </div>
+        <p class="status" id="temp-action">Action: --</p>
+        <div id="temp-alert"></div>
+        <button onclick="showDialog('temp-dialog')">Control Temperature</button>
+        <dialog id="temp-dialog">
+          <h3>Temperature Control</h3>
+          <p id="temp-msg">Current temperature: --°C</p>
+          <button onclick="closeDialog('temp-dialog')">Close</button>
+        </dialog>
+      </div>
+
+      <div class="card">
+        <h2>Humidity</h2>
+        <div class="icon">💧</div>
+        <div class="temp-humidity-display">
+          <span class="value-display" id="humidity-value">--</span>
+          <span class="unit">%</span>
+        </div>
+        <p class="status" id="humidity-action">Action: --</p>
+        <div id="humidity-alert"></div>
+        <button onclick="showDialog('humidity-dialog')">
+          Control Humidifier
+        </button>
+        <dialog id="humidity-dialog">
+          <h3>Humidity Control</h3>
+          <p id="humidity-msg">Current humidity: --%</p>
+          <button onclick="closeDialog('humidity-dialog')">Close</button>
+        </dialog>
+      </div>
+
+      <div class="card">
+        <h2>Water Level</h2>
+        <div class="icon">🚰</div>
+        <div class="circle">
+          <svg width="140" height="140">
+            <circle
+              cx="70"
+              cy="70"
+              r="60"
+              stroke="#eee"
+              stroke-width="10"
+              fill="none"
+            />
+            <circle
+              id="water-level-circle"
+              cx="70"
+              cy="70"
+              r="60"
+              stroke="#1565C0"
+              stroke-width="10"
+              fill="none"
+              stroke-dasharray="377"
+              stroke-dashoffset="75.4"
+            />
+          </svg>
+          <div class="percentage" id="water-level-text">--%</div>
+        </div>
+        <p class="status" id="water-level-status">Level: --</p>
+        <div id="water-alert"></div>
+        <button onclick="showDialog('water-level-dialog')">
+          Control Water
+        </button>
+        <dialog id="water-level-dialog">
+          <h3>Water Level Management</h3>
+          <p id="water-level-msg">Current water level: --%</p>
+          <button onclick="closeDialog('water-level-dialog')">Close</button>
+        </dialog>
+      </div>
+    </div>
+
+    <div id="stats" class="stats-page">
+      <div class="card stats-card">
+        <h2>Weekly Moisture Trends</h2>
+        <div class="chart-container">
+          <canvas id="moistureChart"></canvas>
+        </div>
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Avg Moisture</th>
+              <th>Pump Activations</th>
+              <th>Trend</th>
+            </tr>
+          </thead>
+          <tbody id="moisture-table-body"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Temperature Stats</h2>
+        <div class="icon">🌡️</div>
+        <div class="value-display" id="weekly-temp-avg">--°C</div>
+        <p class="status">Weekly Avg</p>
+        <div class="chart-container" style="height: 200px">
+          <canvas id="tempChart"></canvas>
+        </div>
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Avg Temp</th>
+              <th>Trend</th>
+            </tr>
+          </thead>
+          <tbody id="temp-table-body"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Humidity Stats</h2>
+        <div class="icon">💧</div>
+        <div class="value-display" id="weekly-humidity-avg">--%</div>
+        <p class="status">Weekly Avg</p>
+        <div class="chart-container" style="height: 200px">
+          <canvas id="humidityChart"></canvas>
+        </div>
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Avg Humidity</th>
+              <th>Trend</th>
+            </tr>
+          </thead>
+          <tbody id="humidity-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Created by <strong>Team Ecotron</strong></p>
+      <p id="connection-status">Connecting to MQTT...</p>
+    </div>
+
+    <script>
+      // Global variables
+      let mqttClient;
+      let moistureChart, tempChart, humidityChart;
+      const maxDataPoints = 20; // Number of data points to keep in memory
+      let sensorData = {
+        moisture: [],
+        temperature: [],
+        humidity: [],
+        waterLevel: [],
+        timestamps: [],
+      };
+
+      // Initialize when DOM is loaded
+      document.addEventListener("DOMContentLoaded", function () {
+        initCharts();
+        connectToMQTT();
+        showPage("dashboard");
+        // Simulate initial data update (can be removed in production with real MQTT data)
+        simulateData();
+        // Set interval for weekly stats update to every hour
+        setInterval(updateWeeklyStats, 3600000); // 3600000 milliseconds = 1 hour
+      });
+
+      // Initialize Chart.js charts
+      function initCharts() {
+        // Moisture Chart
+        const moistureCtx = document
+          .getElementById("moistureChart")
+          .getContext("2d");
+        moistureChart = new Chart(moistureCtx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Soil Moisture (%)",
+                data: [],
+                borderColor: "#10b981",
+                backgroundColor: "rgba(16, 185, 129, 0.1)",
+                tension: 0.3,
+                fill: true,
+              },
+            ],
+          },
+          options: getChartOptions("Moisture (%)"),
+        });
+
+        // Temperature Chart
+        const tempCtx = document.getElementById("tempChart").getContext("2d");
+        tempChart = new Chart(tempCtx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Temperature (°C)",
+                data: [],
+                borderColor: "#FF9800",
+                backgroundColor: "rgba(255, 152, 0, 0.1)",
+                tension: 0.3,
+                fill: true,
+              },
+            ],
+          },
+          options: getChartOptions("Temperature (°C)"),
+        });
+
+        // Humidity Chart
+        const humidityCtx = document
+          .getElementById("humidityChart")
+          .getContext("2d");
+        humidityChart = new Chart(humidityCtx, {
+          type: "line",
+          data: {
+            labels: [],
+            datasets: [
+              {
+                label: "Humidity (%)",
+                data: [],
+                borderColor: "#2196F3",
+                backgroundColor: "rgba(33, 150, 243, 0.1)",
+                tension: 0.3,
+                fill: true,
+              },
+            ],
+          },
+          options: getChartOptions("Humidity (%)"),
+        });
+      }
+
+      // Common chart options
+      function getChartOptions(title) {
+        return {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "top",
+            },
+            title: {
+              display: true,
+              text: title,
+            },
+          },
+          scales: {
+            x: {
+              grid: {
+                display: false,
+              },
+            },
+            y: {
+              grid: {
+                color: "rgba(0, 0, 0, 0.05)",
+              },
+            },
+          },
+        };
+      }
+
+      // Connect to MQTT broker
+      function connectToMQTT() {
+        // Replace with your MQTT broker details
+        const options = {
+          host: "broker.hivemq.com", // Public test broker (replace with yours)
+          port: 8000,
+          path: "/mqtt",
+          clientId: "plantcare-" + Math.random().toString(16).substr(2, 8),
+          protocol: "wss",
+        };
+
+        mqttClient = mqtt.connect(options);
+
+        mqttClient.on("connect", function () {
+          console.log("Connected to MQTT");
+          document.getElementById("connection-status").textContent =
+            "Connected to MQTT";
+          mqttClient.subscribe("plantcare/sensors");
+          mqttClient.subscribe("plantcare/actuators/status");
+        });
+
+        mqttClient.on("message", function (topic, message) {
+          const data = JSON.parse(message.toString());
+          console.log("Received:", data);
+
+          // Update UI with new data
+          updateSensorData(data);
+          updateCharts(data);
+
+          // Check for alerts
+          checkAlerts(data);
+
+          // Auto-control pump if moisture is low
+          if (data.moisture !== undefined && data.moisture < 40) {
+            controlPump("ON");
+          }
+        });
+
+        mqttClient.on("error", function (err) {
+          console.error("MQTT Error:", err);
+          document.getElementById("connection-status").textContent =
+            "MQTT Error: " + err.message;
+        });
+
+        mqttClient.on("close", function () {
+          console.log("MQTT Connection closed");
+          document.getElementById("connection-status").textContent =
+            "Disconnected from MQTT";
+        });
+      }
+
+      // Update sensor data arrays
+      function updateSensorData(data) {
+        const now = new Date();
+        const timestamp = now.toLocaleTimeString();
+
+        // Add new data (limit to maxDataPoints)
+        if (data.moisture !== undefined) {
+          sensorData.moisture.push(data.moisture);
+          if (sensorData.moisture.length > maxDataPoints)
+            sensorData.moisture.shift();
+        }
+
+        if (data.temperature !== undefined) {
+          sensorData.temperature.push(data.temperature);
+          if (sensorData.temperature.length > maxDataPoints)
+            sensorData.temperature.shift();
+        }
+
+        if (data.humidity !== undefined) {
+          sensorData.humidity.push(data.humidity);
+          if (sensorData.humidity.length > maxDataPoints)
+            sensorData.humidity.shift();
+        }
+
+        if (data.waterLevel !== undefined) {
+          sensorData.waterLevel.push(data.waterLevel);
+          if (sensorData.waterLevel.length > maxDataPoints)
+            sensorData.waterLevel.shift();
+        }
+
+        sensorData.timestamps.push(timestamp);
+        if (sensorData.timestamps.length > maxDataPoints)
+          sensorData.timestamps.shift();
+
+        // Update UI
+        updateUI(data);
+      }
+
+      // Update charts with new data
+      function updateCharts(data) {
+        // Update moisture chart
+        moistureChart.data.labels = sensorData.timestamps;
+        moistureChart.data.datasets[0].data = sensorData.moisture;
+        moistureChart.update();
+
+        // Update temperature chart
+        tempChart.data.labels = sensorData.timestamps;
+        tempChart.data.datasets[0].data = sensorData.temperature;
+        tempChart.update();
+
+        // Update humidity chart
+        humidityChart.data.labels = sensorData.timestamps;
+        humidityChart.data.datasets[0].data = sensorData.humidity;
+        humidityChart.update();
+      }
+
+      // Update the weekly stats table
+      function updateWeeklyStats() {
+        // In a real implementation, you would get this from a database or API
+        // For demo purposes, we'll simulate some weekly data
+        const days = [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday",
+        ];
+        const moistureTableBody = document.getElementById(
+          "moisture-table-body"
+        );
+        const tempTableBody = document.getElementById("temp-table-body");
+        const humidityTableBody = document.getElementById(
+          "humidity-table-body"
+        );
+
+        moistureTableBody.innerHTML = "";
+        tempTableBody.innerHTML = "";
+        humidityTableBody.innerHTML = "";
+
+        days.forEach((day) => {
+          // Moisture Table
+          const moistureRow = document.createElement("tr");
+          const moistureDayCell = document.createElement("td");
+          moistureDayCell.textContent = day;
+          moistureRow.appendChild(moistureDayCell);
+          const avgMoistureCell = document.createElement("td");
+          const avgMoistureValue = Math.round(40 + Math.random() * 40); // Random between 40-80
+          avgMoistureCell.textContent = avgMoistureValue + "%";
+          moistureRow.appendChild(avgMoistureCell);
+          const pumpCell = document.createElement("td");
+          const pumpCount =
+            avgMoistureValue < 50 ? Math.floor(1 + Math.random() * 3) : 0;
+          pumpCell.textContent = pumpCount;
+          moistureRow.appendChild(pumpCell);
+          const moistureTrendCell = document.createElement("td");
+          const moistureTrendSpan = document.createElement("span");
+          moistureTrendSpan.className = "trend-indicator";
+          if (Math.random() > 0.5) {
+            moistureTrendSpan.classList.add("trend-up");
+            moistureTrendSpan.textContent =
+              "↑ " + Math.floor(1 + Math.random() * 20) + "%";
+          } else {
+            moistureTrendSpan.classList.add("trend-down");
+            moistureTrendSpan.textContent =
+              "↓ " + Math.floor(1 + Math.random() * 15) + "%";
+          }
+          moistureTrendCell.appendChild(moistureTrendSpan);
+          moistureRow.appendChild(moistureTrendCell);
+          moistureTableBody.appendChild(moistureRow);
+
+          // Temperature Table
+          const tempRow = document.createElement("tr");
+          const tempDayCell = document.createElement("td");
+          tempDayCell.textContent = day;
+          tempRow.appendChild(tempDayCell);
+          const avgTempCell = document.createElement("td");
+          const avgTempValue = Math.round(20 + Math.random() * 15); // Random between 20-35
+          avgTempCell.textContent = avgTempValue + "°C";
+          tempRow.appendChild(avgTempCell);
+          const tempTrendCell = document.createElement("td");
+          const tempTrendSpan = document.createElement("span");
+          tempTrendSpan.className = "trend-indicator";
+          if (Math.random() > 0.5) {
+            tempTrendSpan.classList.add("trend-up");
+            tempTrendSpan.textContent =
+              "↑ " + Math.floor(1 + Math.random() * 5) + "°C";
+          } else {
+            tempTrendSpan.classList.add("trend-down");
+            tempTrendSpan.textContent =
+              "↓ " + Math.floor(1 + Math.random() * 5) + "°C";
+          }
+          tempTrendCell.appendChild(tempTrendSpan);
+          tempRow.appendChild(tempTrendCell);
+          tempTableBody.appendChild(tempRow);
+
+          // Humidity Table
+          const humidityRow = document.createElement("tr");
+          const humidityDayCell = document.createElement("td");
+          humidityDayCell.textContent = day;
+          humidityRow.appendChild(humidityDayCell);
+          const avgHumidityCell = document.createElement("td");
+          const avgHumidityValue = Math.round(40 + Math.random() * 30); // Random between 40-70
+          avgHumidityCell.textContent = avgHumidityValue + "%";
+          humidityRow.appendChild(avgHumidityCell);
+          const humidityTrendCell = document.createElement("td");
+          const humidityTrendSpan = document.createElement("span");
+          humidityTrendSpan.className = "trend-indicator";
+          if (Math.random() > 0.5) {
+            humidityTrendSpan.classList.add("trend-up");
+            humidityTrendSpan.textContent =
+              "↑ " + Math.floor(1 + Math.random() * 10) + "%";
+          } else {
+            humidityTrendSpan.classList.add("trend-down");
+            humidityTrendSpan.textContent =
+              "↓ " + Math.floor(1 + Math.random() * 10) + "%";
+          }
+          humidityTrendCell.appendChild(humidityTrendSpan);
+          humidityRow.appendChild(humidityTrendCell);
+          humidityTableBody.appendChild(humidityRow);
+        });
+
+        // Update weekly averages
+        const avgTemp =
+          sensorData.temperature.length > 0
+            ? Math.round(
+                sensorData.temperature.reduce((a, b) => a + b, 0) /
+                  sensorData.temperature.length
+              )
+            : "--";
+        const avgHumidity =
+          sensorData.humidity.length > 0
+            ? Math.round(
+                sensorData.humidity.reduce((a, b) => a + b, 0) /
+                  sensorData.humidity.length
+              )
+            : "--";
+        document.getElementById("weekly-temp-avg").textContent = avgTemp + "°C";
+        document.getElementById("weekly-humidity-avg").textContent =
+          avgHumidity + "%";
+      }
+
+      // Control the water pump
+      function controlPump(state) {
+        if (!mqttClient || !mqttClient.connected) {
+          alert("Not connected to MQTT broker");
+          return;
+        }
+
+        const message = JSON.stringify({ pump: state });
+        mqttClient.publish("plantcare/actuators", message);
+
+        // Update UI immediately
+        document.getElementById("pump-status").textContent =
+          "Pump Status: " + state;
+        document.getElementById("moisture-msg").textContent =
+          "Pump has been turned " +
+          state +
+          ". Moisture level: " +
+          (document.getElementById("moisture-text").textContent || "--");
+      }
+
+      // Check for alert conditions
+      function checkAlerts(data) {
+        // Moisture alerts
+        const moistureAlert = document.getElementById("moisture-alert");
+        if (data.moisture < 40) {
+          moistureAlert.innerHTML =
+            '<div class="alert alert-warning">Low moisture! Watering recommended.</div>';
+        } else if (data.moisture > 80) {
+          moistureAlert.innerHTML =
+            '<div class="alert alert-warning">High moisture! Reduce watering.</div>';
+        } else {
+          moistureAlert.innerHTML =
+            '<div class="alert alert-success">Moisture level is optimal.</div>';
+        }
+
+        // Temperature alerts
+        const tempAlert = document.getElementById("temp-alert");
+        if (data.temperature < 20) {
+          tempAlert.innerHTML =
+            '<div class="alert alert-warning">Low temperature! Consider warming.</div>';
+        } else if (data.temperature > 30) {
+          tempAlert.innerHTML =
+            '<div class="alert alert-warning">High temperature! Cooling recommended.</div>';
+        } else {
+          tempAlert.innerHTML =
+            '<div class="alert alert-success">Temperature is optimal.</div>';
+        }
+
+        // Humidity alerts
+        const humidityAlert = document.getElementById("humidity-alert");
+        if (data.humidity < 40) {
+          humidityAlert.innerHTML =
+            '<div class="alert alert-warning">Low humidity! Consider humidification.</div>';
+        } else if (data.humidity > 70) {
+          humidityAlert.innerHTML =
+            '<div class="alert alert-warning">High humidity! Ventilation recommended.</div>';
+        } else {
+          humidityAlert.innerHTML =
+            '<div class="alert alert-success">Humidity is optimal.</div>';
+        }
+
+        // Water level alerts
+        const waterAlert = document.getElementById("water-alert");
+        if (data.waterLevel < 20) {
+          waterAlert.innerHTML =
+            '<div class="alert alert-warning">Low water level! Refill required.</div>';
+        } else if (data.waterLevel > 80) {
+          waterAlert.innerHTML =
+            '<div class="alert alert-warning">Water level is high.</div>';
+        } else {
+          waterAlert.innerHTML =
+            '<div class="alert alert-success">Water level is adequate.</div>';
+        }
+      }
+
+      // Update the UI with sensor data
+      function updateUI(data) {
+        // Moisture
+        if (data.moisture !== undefined) {
+          document.getElementById("moisture-text").textContent =
+            data.moisture.toFixed(2) + "%";
+          const moistureOffset = 377 - (data.moisture / 100) * 377;
+          document
+            .getElementById("moisture-circle")
+            .setAttribute("stroke-dashoffset", moistureOffset);
+
+          const pumpStatus = data.moisture < 40 ? "ON" : "OFF";
+          document.getElementById("pump-status").textContent =
+            "Pump Status: " + pumpStatus;
+          document.getElementById("moisture-msg").textContent =
+            data.moisture < 40
+              ? "Moisture is low. You should turn on the pump to water the plants."
+              : "Moisture is adequate. The pump can be turned off to conserve water.";
+        }
+
+        // Temperature
+        if (data.temperature !== undefined) {
+          document.getElementById("temp-value").textContent =
+            data.temperature.toFixed(2);
+          const tempAction =
+            data.temperature < 20
+              ? "Increase"
+              : data.temperature > 30
+              ? "Decrease"
+              : "Optimal";
+          document.getElementById("temp-action").textContent =
+            "Action: " + tempAction;
+          document.getElementById("temp-msg").textContent =
+            data.temperature < 20
+              ? "Temperature is low for optimal plant growth. Consider increasing the temperature."
+              : data.temperature > 30
+              ? "Temperature is high and may stress the plants. Consider cooling measures."
+              : "Temperature is in the optimal range for plant growth.";
+        }
+
+        // Humidity
+        if (data.humidity !== undefined) {
+          document.getElementById("humidity-value").textContent =
+            data.humidity.toFixed(2);
+          const humAction =
+            data.humidity < 40
+              ? "Increase"
+              : data.humidity > 70
+              ? "Decrease"
+              : "Optimal";
+          document.getElementById("humidity-action").textContent =
+            "Action: " + humAction;
+          document.getElementById("humidity-msg").textContent =
+            data.humidity < 40
+              ? "Humidity is low. Increasing humidity will create better growing conditions."
+              : data.humidity > 70
+              ? "Humidity is high and may promote mold growth. Consider reducing humidity."
+              : "Humidity is in the optimal range for plant health.";
+        }
+
+        // Water Level
+        if (data.waterLevel !== undefined) {
+          document.getElementById("water-level-text").textContent =
+            data.waterLevel.toFixed(2) + "%";
+          const waterOffset = 377 - (data.waterLevel / 100) * 377;
+          document
+            .getElementById("water-level-circle")
+            .setAttribute("stroke-dashoffset", waterOffset);
+
+          const waterStatus =
+            data.waterLevel < 20
+              ? "Low"
+              : data.waterLevel > 80
+              ? "High"
+              : "Medium";
+          document.getElementById("water-level-status").textContent =
+            "Level: " + waterStatus;
+          document.getElementById("water-level-msg").textContent =
+            data.waterLevel < 20
+              ? "Water level is critically low. Immediate refill is required to maintain the system."
+              : data.waterLevel > 80
+              ? "Water level is high. No immediate action needed."
+              : "Water level is adequate. Monitor for changes.";
+        }
+      }
+
+      // Page Navigation
+      function showPage(pageId) {
+        document.getElementById("dashboard").style.display =
+          pageId === "dashboard" ? "grid" : "none";
+        document.getElementById("stats").style.display =
+          pageId === "stats" ? "grid" : "none";
+
+        document.querySelectorAll(".nav button").forEach((btn) => {
+          btn.classList.toggle(
+            "active",
+            btn.textContent.toLowerCase().includes(pageId)
+          );
+        });
+      }
+
+      function showDialog(id) {
+        document.getElementById(id).showModal();
+      }
+
+      function closeDialog(id) {
+        document.getElementById(id).close();
+      }
+
+      // Simulate incoming data for demo purposes
+      function simulateData() {
+        const now = new Date();
+        const simulatedData = {
+          moisture: Math.max(10, Math.min(90, 50 + (Math.random() * 30 - 15))),
+          temperature: Math.max(
+            15,
+            Math.min(35, 25 + (Math.random() * 10 - 5))
+          ),
+          humidity: Math.max(30, Math.min(80, 55 + (Math.random() * 20 - 10))),
+          waterLevel: Math.max(
+            10,
+            Math.min(100, 60 + (Math.random() * 30 - 15))
+          ),
+          timestamp: now.toISOString(),
+        };
+
+        updateSensorData(simulatedData);
+        updateCharts(simulatedData);
+        checkAlerts(simulatedData);
+      }
+
+      // Start simulation (remove in production)
+      setInterval(simulateData, 1800000);
+    </script>
+  </body>
+</html>
