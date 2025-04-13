@@ -72,26 +72,28 @@ void drawBMP(const char *filename) {
 
   (void)read32(bmpFile); // compression
 
+  // Fill the screen with white before drawing
+  tft.fillScreen(0xFFFF);
+
   // Centering
-int x_offset = (320 - bmpWidth) / 2;
-int y_offset = (240 - bmpHeight) / 2;
+  int x_offset = (240 - bmpWidth) / 2;
+  int y_offset = (320 - bmpHeight) / 2;
 
-bmpFile.seek(imageOffset);
+  bmpFile.seek(imageOffset);
 
-uint32_t rowSize = (bmpWidth * 3 + 3) & ~3;
-uint8_t sdbuffer[rowSize];
+  uint32_t rowSize = (bmpWidth * 3 + 3) & ~3;
+  uint8_t sdbuffer[rowSize];
 
-for (int y = bmpHeight - 1; y >= 0; y--) {
-  bmpFile.read(sdbuffer, rowSize);
-  for (int x = 0; x < bmpWidth; x++) {
-    uint8_t b = sdbuffer[x * 3];
-    uint8_t g = sdbuffer[x * 3 + 1];
-    uint8_t r = sdbuffer[x * 3 + 2];
-    uint16_t color = tft.color565(r, g, b);
-    tft.drawPixel(x + x_offset, y + y_offset, color);
+  for (int y = bmpHeight - 1; y >= 0; y--) {
+    bmpFile.read(sdbuffer, rowSize);
+    for (int x = 0; x < bmpWidth; x++) {
+      uint8_t b = sdbuffer[x * 3];
+      uint8_t g = sdbuffer[x * 3 + 1];
+      uint8_t r = sdbuffer[x * 3 + 2];
+      uint16_t color = tft.color565(r, g, b);
+      tft.drawPixel(x + x_offset, y + y_offset, color);
+    }
   }
-}
-
 
   bmpFile.close();
   Serial.println("Done!");
