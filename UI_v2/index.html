@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Automatic Plant Care</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="function.js"></script>
+</head>
+<body>
+
+<div class="header">
+    <h1>Automatic Plant Care</h1>
+    <p>Smart Monitoring System for Healthy Plants</p>
+</div>
+
+<div class="nav">
+    <button class="active" onclick="showPage('dashboard')">Live Dashboard</button>
+    <button onclick="showPage('stats')">Weekly Stats</button>
+</div>
+
+<div id="dashboard" class="dashboard">
+    <div class="card">
+        <h2>Soil Moisture</h2>
+        <div class="icon">🌱</div>
+        <div class="circle">
+            <svg width="140" height="140">
+                <circle cx="70" cy="70" r="60" stroke="#eee" stroke-width="10" fill="none"/>
+                <circle id="moisture-circle" cx="70" cy="70" r="60" stroke="#10b981" stroke-width="10" fill="none" stroke-dasharray="377" stroke-dashoffset="188.5"/>
+            </svg>
+            <div class="percentage" id="moisture-text">--%</div>
+        </div>
+        <p class="status" id="pump-status">Pump Status: --</p>
+        <div id="moisture-alert"></div>
+        <button onclick="showDialog('moisture-dialog')">Control Pump</button>
+        <dialog id="moisture-dialog">
+            <h3>Soil Moisture Control</h3>
+            <p id="moisture-msg">Moisture level: --</p>
+            <button onclick="controlPump('ON')">Turn ON Pump</button>
+            <button onclick="controlPump('OFF')">Turn OFF Pump</button>
+            <button onclick="closeDialog('moisture-dialog')">Close</button>
+        </dialog>
+    </div>
+
+    <div class="card">
+        <h2>Temperature</h2>
+        <div class="icon">🌡️</div>
+        <div class="temp-humidity-display">
+            <span class="value-display" id="temp-value">--</span>
+            <span class="unit">°C</span>
+        </div>
+        <p class="status" id="temp-action">Action: --</p>
+        <div id="temp-alert"></div>
+        <button onclick="showDialog('temp-dialog')">Control Temperature</button>
+        <dialog id="temp-dialog">
+            <h3>Temperature Control</h3>
+            <p id="temp-msg">Current temperature: --°C</p>
+            <button onclick="closeDialog('temp-dialog')">Close</button>
+        </dialog>
+    </div>
+
+    <div class="card">
+        <h2>Humidity</h2>
+        <div class="icon">💧</div>
+        <div class="temp-humidity-display">
+            <span class="value-display" id="humidity-value">--</span>
+            <span class="unit">%</span>
+        </div>
+        <p class="status" id="humidity-action">Action: --</p>
+        <div id="humidity-alert"></div>
+        <button onclick="showDialog('humidity-dialog')">Control Humidifier</button>
+        <dialog id="humidity-dialog">
+            <h3>Humidity Control</h3>
+            <p id="humidity-msg">Current humidity: --%</p>
+            <button onclick="closeDialog('humidity-dialog')">Close</button>
+        </dialog>
+    </div>
+
+    <div class="card">
+        <h2>Water Level</h2>
+        <div class="icon">🚰</div>
+        <div class="circle">
+            <svg width="140" height="140">
+                <circle cx="70" cy="70" r="60" stroke="#eee" stroke-width="10" fill="none"/>
+                <circle id="water-level-circle" cx="70" cy="70" r="60" stroke="#1565C0" stroke-width="10" fill="none" stroke-dasharray="377" stroke-dashoffset="75.4"/>
+            </svg>
+            <div class="percentage" id="water-level-text">--%</div>
+        </div>
+        <p class="status" id="water-level-status">Level: --</p>
+        <div id="water-alert"></div>
+        <button onclick="showDialog('water-level-dialog')">Control Water</button>
+        <dialog id="water-level-dialog">
+            <h3>Water Level Management</h3>
+            <p id="water-level-msg">Current water level: --%</p>
+            <button onclick="closeDialog('water-level-dialog')">Close</button>
+        </dialog>
+    </div>
+</div>
+
+<div id="stats" class="stats-page">
+    <div class="card stats-card">
+        <h2>Weekly Moisture Trends</h2>
+        <div class="chart-container">
+            <canvas id="moistureChart"></canvas>
+        </div>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Avg Moisture</th>
+                    <th>Pump Activations</th>
+                    <th>Trend</th>
+                </tr>
+            </thead>
+            <tbody id="moisture-table-body">
+                </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Temperature Stats</h2>
+        <div class="icon">🌡️</div>
+        <div class="value-display" id="weekly-temp-avg">--°C</div>
+        <p class="status">Weekly Avg</p>
+        <div class="chart-container" style="height: 200px;">
+            <canvas id="tempChart"></canvas>
+        </div>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Avg Temp</th>
+                    <th>Trend</th>
+                </tr>
+            </thead>
+            <tbody id="temp-table-body">
+                </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Humidity Stats</h2>
+        <div class="icon">💧</div>
+        <div class="value-display" id="weekly-humidity-avg">--%</div>
+        <p class="status">Weekly Avg</p>
+        <div class="chart-container" style="height: 200px;">
+            <canvas id="humidityChart"></canvas>
+        </div>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Avg Humidity</th>
+                    <th>Trend</th>
+                </tr>
+            </thead>
+            <tbody id="humidity-table-body">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="footer">
+    <p>Created by <strong>Team Ecotron</strong></p>
+    <p id="connection-status">Connecting to MQTT...</p>
+</div>
+
+</body>
+</html>
